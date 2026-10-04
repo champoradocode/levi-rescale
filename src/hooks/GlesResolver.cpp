@@ -10,8 +10,8 @@ namespace levi_rescale {
 std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
                                                       std::string_view preferredModule) {
     const std::vector<std::string> allCandidates = {
-        "libGLESv3.so",
         "libGLESv2.so",
+        "libGLESv3.so",
         "libGLESv1_CM.so",
     };
 
@@ -30,6 +30,7 @@ std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
         "glScissor",
     };
 
+    std::optional<ResolvedGlesSymbols> best;
     for (const auto &module : candidates) {
         const auto resolved = pl::memory::resolveSignatures(signatures, module);
         const auto viewportIt = resolved.find("glViewport");
@@ -45,10 +46,14 @@ std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
                     static_cast<unsigned long long>(glViewport),
                     static_cast<unsigned long long>(glScissor));
 
-        if (glViewport != 0 && glScissor != 0) {
-            logger.info("Resolved GL viewport functions in '{}'", module);
-            return ResolvedGlesSymbols{module, glViewport, glScissor};
+        if (glViewport != 0 && glScissor != 0 && !best) {
+            best = ResolvedGlesSymbols{module, glViewport, glScissor};
         }
+    }
+
+    if (best) {
+        logger.info("Resolved GL viewport functions in '{}'", best->module);
+        return best;
     }
 
     logger.warn("No candidate GLES module provided both glViewport and glScissor");
