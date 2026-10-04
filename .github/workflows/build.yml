@@ -33,7 +33,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: levilauncher-android-mod-template
+          name: levi-rescale
           path: build-*/*.levipack
 
       - name: Publish release assets
