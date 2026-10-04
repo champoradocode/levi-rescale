@@ -72,20 +72,20 @@ Locked decisions for v1:
 
 ## F0 — Scaffolding & rename (T01–T03)
 
-- [ ] **T01 — Rename the mod class and namespace.**
+- [x] **T01 — Rename the mod class and namespace.**
   `src/mod/MyMod.{h,cpp}` → `src/mod/RescaleMod.{h,cpp}`, `ClangeMeMod` →
   `RescaleMod`, namespace `clange_me` → `levi_rescale`, update `src/main.cpp`.
   *Done when:* the `.levipack` builds via CI and the mod still loads and logs
   `Loaded Levi-ReScale from …`.
 
-- [ ] **T02 — Create the hook source stubs and wire them into CMake.**
+- [x] **T02 — Create the hook source stubs and wire them into CMake.**
   Empty `src/hooks/GlesResolver.{h,cpp}`, `ViewportScale.{h,cpp}`,
   `WindowGeometry.{h,cpp}`, `FboComposite.{h,cpp}`; add all to the
   `${MOD_LIBRARY_NAME}` target in `CMakeLists.txt` (and to `levi_config_generator`
   sources where needed).
   *Done when:* host config generator + Android build both succeed, no warnings.
 
-- [ ] **T03 — Clean up leftover template text.**
+- [x] **T03 — Clean up leftover template text.**
   Remove `message = "Hello from clange_me"` style template fields and the
   `clange_me` naming from `README.md`, `manifest.json.in` (if any) and config
   defaults, so logs and config UI read `levi_rescale`.

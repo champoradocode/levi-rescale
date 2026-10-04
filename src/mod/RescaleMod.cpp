@@ -47,7 +47,7 @@ bool RescaleMod::enable() {
     auto &self = getSelf();
     self.getLogger().debug("Enabling...");
     if (!mConfig.enabled) {
-        self.getLogger().info("clange_me is disabled by config");
+        self.getLogger().info("Levi-ReScale is disabled by config");
         return true;
     }
 

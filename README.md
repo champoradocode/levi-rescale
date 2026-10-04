@@ -1,8 +1,9 @@
-# LeviLauncher Android Mod Template
+# Levi-ReScale
 
-This is a CMake template for LeviLauncher Android native mods. It includes a
-ready-to-use `manifest.json`, CMake project, minimal `ClangeMeMod`, packaging script,
-typed config generation, and GitHub Actions workflow.
+Native LeviLauncher mod that scales the Minecraft Bedrock internal render
+resolution to save battery and reduce heat, without touching Android display
+resolution, aspect ratio, or touch mapping. Built on the preloader-android SDK;
+see [PLAN.md](PLAN.md) for the implementation plan and design notes.
 
 ## Project Layout
 
@@ -14,11 +15,20 @@ typed config generation, and GitHub Actions workflow.
 └── src
     ├── config_generator.cpp
     ├── main.cpp
+    ├── hooks
+    │   ├── FboComposite.cpp
+    │   ├── FboComposite.h
+    │   ├── GlesResolver.cpp
+    │   ├── GlesResolver.h
+    │   ├── ViewportScale.cpp
+    │   ├── ViewportScale.h
+    │   ├── WindowGeometry.cpp
+    │   └── WindowGeometry.h
     └── mod
         ├── Config.h
         ├── Config.cpp
-        ├── MyMod.cpp
-        └── MyMod.h
+        ├── RescaleMod.cpp
+        └── RescaleMod.h
 ```
 
 ## Requirements
@@ -76,12 +86,12 @@ cmake -S . -B build-arm64-v8a `
   -DANDROID_ABI=arm64-v8a `
   -DANDROID_PLATFORM=android-28 `
   -DANDROID_STL=c++_shared `
-  -DMOD_ID=clange_me `
-  -DMOD_NAME="Clange Me Mod" `
-  -DMOD_AUTHOR="clange_me" `
+  -DMOD_ID=levi_rescale `
+  -DMOD_NAME="Levi-ReScale" `
+  -DMOD_AUTHOR="Champorado" `
   -DMOD_VERSION=0.1.0 `
-  -DMOD_LIBRARY_NAME=clange_me `
-  -DMOD_MINECRAFT_VERSIONS='["1.21.*"]' `
+  -DMOD_LIBRARY_NAME=levi_rescale `
+  -DMOD_MINECRAFT_VERSIONS='["1.26.5*"]' `
   "-DMOD_ICON="
 
 cmake --build build-arm64-v8a --target levi_package
@@ -89,27 +99,27 @@ cmake --build build-arm64-v8a --target levi_package
 
 ## Lifecycle
 
-Write your mod logic in [src/mod/MyMod.cpp](src/mod/MyMod.cpp):
+Write your mod logic in [src/mod/RescaleMod.cpp](src/mod/RescaleMod.cpp):
 
 ```cpp
-ClangeMeMod::ClangeMeMod() : mSelf(*ll::mod::NativeMod::current()) {}
+RescaleMod::RescaleMod() : mSelf(*ll::mod::NativeMod::current()) {}
 
-bool ClangeMeMod::load() {
+bool RescaleMod::load() {
     getSelf().getLogger().debug("Loading...");
     return true;
 }
 
-bool ClangeMeMod::enable() {
+bool RescaleMod::enable() {
     getSelf().getLogger().debug("Enabling...");
     return true;
 }
 
-bool ClangeMeMod::disable() {
+bool RescaleMod::disable() {
     getSelf().getLogger().debug("Disabling...");
     return true;
 }
 
-bool ClangeMeMod::unload() {
+bool RescaleMod::unload() {
     getSelf().getLogger().debug("Unloading...");
     return true;
 }
@@ -147,11 +157,11 @@ The template includes a minimal typed config in `src/mod/Config.h`:
 struct ModConfig {
     int version = 1;
     bool enabled = true;
-    std::string message = "Hello from clange_me";
+    std::string message = "Hello from levi_rescale";
 };
 ```
 
-`ClangeMeMod::load()` uses `pl::config::ConfigFile<ModConfig>` to create and update
+`RescaleMod::load()` uses `pl::config::ConfigFile<ModConfig>` to create and update
 `config/config.json`. The package script runs `src/config_generator.cpp` before
 Android compilation and includes generated `config.json` and
 `config.schema.json` in the `.levipack`.
