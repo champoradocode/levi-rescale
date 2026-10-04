@@ -22,6 +22,9 @@ static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
 static void *gOriginalViewportRaw = nullptr;
 static bool gNeedLogViewportAfterEgl = false;
+static int gLowresWidth = 0;
+static int gLowresHeight = 0;
+static bool gLoggedLowresViewport = false;
 
 using GlViewportFn = void (*)(int x, int y, int width, int height);
 
@@ -30,6 +33,17 @@ static void viewportDetour(int x, int y, int width, int height) {
         gNeedLogViewportAfterEgl = false;
         RescaleMod::instance().getSelf().getLogger().info(
             "glViewport after EGL surface: {}x{}", width, height);
+    }
+
+    if (gLowresWidth > 0 && gLowresHeight > 0 &&
+        width > gLowresWidth && height > gLowresHeight) {
+        if (!gLoggedLowresViewport) {
+            gLoggedLowresViewport = true;
+            RescaleMod::instance().getSelf().getLogger().info(
+                "Forcing glViewport {}x{} -> {}x{}", width, height, gLowresWidth, gLowresHeight);
+        }
+        width = gLowresWidth;
+        height = gLowresHeight;
     }
 
     auto original = reinterpret_cast<GlViewportFn>(gOriginalViewportRaw);
@@ -58,6 +72,8 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
         query(dpy, surface, EGL_HEIGHT, &h);
         RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
         gNeedLogViewportAfterEgl = true;
+        gLowresWidth = w;
+        gLowresHeight = h;
     }
 
     return surface;
