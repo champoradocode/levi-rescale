@@ -6,6 +6,7 @@
 #include "hooks/GlesResolver.h"
 
 #include <pl/Mod.hpp>
+#include <pl/memory/Hook.hpp>
 
 namespace levi_rescale {
 
@@ -27,6 +28,7 @@ class RescaleMod {
     ModConfig mConfig;
     std::optional<pl::config::ConfigFile<ModConfig>> mConfigFile;
     std::optional<ResolvedGlesSymbols> mGlesSymbols;
-};
+    std::optional<pl::memory::HookHandle> mViewportHook;
+  };
 
 } // namespace levi_rescale

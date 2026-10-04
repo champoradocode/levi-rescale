@@ -5,8 +5,28 @@
 #include "hooks/GlesResolver.h"
 
 #include <pl/Mod.hpp>
+#include <pl/memory/Hook.hpp>
 
 namespace levi_rescale {
+
+using GlViewportFn = void (*)(int x, int y, int width, int height);
+static void *g_originalViewport = nullptr;
+
+static void viewportDetour(int x, int y, int width, int height) {
+    static int sLastWidth = -1;
+    static int sLastHeight = -1;
+
+    if (width != sLastWidth || height != sLastHeight) {
+        sLastWidth = width;
+        sLastHeight = height;
+        RescaleMod::instance().getSelf().getLogger().info("Game viewport: {}x{}", width, height);
+    }
+
+    if (g_originalViewport) {
+        auto original = reinterpret_cast<GlViewportFn>(g_originalViewport);
+        original(x, y, width, height);
+    }
+}
 
 RescaleMod &RescaleMod::instance() {
     static RescaleMod instance;
@@ -58,13 +78,26 @@ bool RescaleMod::enable() {
     mGlesSymbols = resolveGlesSymbols(self.getLogger());
     if (!mGlesSymbols) {
         self.getLogger().warn("GL viewport functions unavailable; later GL hooks will be skipped");
+        return true;
+    }
+
+    mViewportHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlesSymbols->glViewport),
+                          reinterpret_cast<pl::memory::FuncPtr>(&viewportDetour),
+                          &g_originalViewport,
+                          pl::memory::HookPriority::Normal);
+
+    if (!mViewportHook->installed()) {
+        self.getLogger().error("Failed to install viewport hook");
     }
     return true;
 }
 
 bool RescaleMod::disable() {
     getSelf().getLogger().debug("Disabling...");
-    // Undo enable-time state here.
+    if (mViewportHook) {
+        mViewportHook->reset();
+        mViewportHook.reset();
+    }
     return true;
 }
 
