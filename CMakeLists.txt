@@ -120,6 +120,10 @@ add_library(${MOD_LIBRARY_NAME} SHARED
     src/main.cpp
     src/mod/Config.cpp
     src/mod/RescaleMod.cpp
+    src/hooks/FboComposite.cpp
+    src/hooks/GlesResolver.cpp
+    src/hooks/ViewportScale.cpp
+    src/hooks/WindowGeometry.cpp
 )
 
 set_target_properties(${MOD_LIBRARY_NAME} PROPERTIES
