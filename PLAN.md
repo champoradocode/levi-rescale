@@ -30,7 +30,7 @@ Future (post-v1) ideas live in [§9](#9-future-plans-not-in-v1).
 |---|---|---|
 | F0 — Scaffolding & rename | [T01–T03](#f0--scaffolding--rename-t01t03) | not started |
 | F1 — Configuration | [T04–T08](#f1--configuration-t04t08) | not started |
-| F2 — Hook resolution & lifecycle | [T09–T13](#f2--hook-resolution--lifecycle-t09t13) | not started |
+| F2 — Hook resolution & lifecycle | [T09–T13](#f2--hook-resolution--lifecycle-t09t13) | in progress |
 | F3 — Viewport scaling (core) | [T14–T18](#f3--viewport-scaling-core-t14t18) | not started |
 | F4 — Window buffer geometry upscale | [T19–T24](#f4--window-buffer-geometry-upscale-modewindow-t19t24) | not started |
 | F5 — FBO upscale fallback | [T25–T30](#f5--fbo-upscale-fallback-modefbo-t25t30) | not started |
@@ -150,10 +150,10 @@ name (`magic_enum::enum_name`), keeping `config.json` human-editable.
   target+detour pairs for `unhook`), with `installAll()` / `removeAll()`.
   *Done when:* compiles, and `removeAll()` is idempotent and safe to call twice.
 
-- [ ] **T10 — Resolve the GL viewport functions.**
+- [x] **T10 — Resolve the GL viewport functions.**
   `resolveSignatures` for `glViewport` and `glScissor` over the candidate module
-  list `libGLESv3.so`, `libGLESv2.so`, `libGLESv1_CM.so`; log each resolved
-  address + module name; treat `0` as failure.
+  list, preferring `libGLESv2.so`, then `libGLESv3.so`, then `libGLESv1_CM.so`;
+  log each resolved address + module name; treat `0` as failure.
   *Done when:* logcat shows both addresses on a cold start with no GL installed.
 
 - [ ] **T11 — Resolve the EGL functions.**
