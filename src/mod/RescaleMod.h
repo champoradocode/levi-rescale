@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "mod/Config.h"
+#include "hooks/GlesResolver.h"
 
 #include <pl/Mod.hpp>
 
@@ -25,6 +26,7 @@ class RescaleMod {
     ll::mod::NativeMod &mSelf;
     ModConfig mConfig;
     std::optional<pl::config::ConfigFile<ModConfig>> mConfigFile;
+    std::optional<ResolvedGlesSymbols> mGlesSymbols;
 };
 
 } // namespace levi_rescale

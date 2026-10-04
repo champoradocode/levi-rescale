@@ -1,3 +1,4 @@
+minecraft-symbols/
 build*/
 out/
 dist/
@@ -9,4 +10,4 @@ dist/
 *.log
 .opencode/
 AGENTS.md
-PLANS.md
+PLAN.md

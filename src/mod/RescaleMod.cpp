@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include "hooks/GlesResolver.h"
+
 #include <pl/Mod.hpp>
 
 namespace levi_rescale {
@@ -52,6 +54,11 @@ bool RescaleMod::enable() {
     }
 
     self.getLogger().info("Config message: {}", mConfig.message);
+
+    mGlesSymbols = resolveGlesSymbols(self.getLogger());
+    if (!mGlesSymbols) {
+        self.getLogger().warn("GL viewport functions unavailable; later GL hooks will be skipped");
+    }
     return true;
 }
 
