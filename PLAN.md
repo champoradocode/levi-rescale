@@ -156,7 +156,7 @@ name (`magic_enum::enum_name`), keeping `config.json` human-editable.
   log each resolved address + module name; treat `0` as failure.
   *Done when:* logcat shows both addresses on a cold start with no GL installed.
 
-- [ ] **T11 — Resolve the EGL functions.**
+- [x] **T11 — Resolve the EGL functions.**
   Same for `eglCreateWindowSurface` and `eglSwapBuffers` in `libEGL.so`.
   *Done when:* both addresses logged; missing ones log `warn` and are skipped
   without aborting load.

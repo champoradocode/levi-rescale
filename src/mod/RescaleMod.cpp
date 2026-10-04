@@ -3,42 +3,11 @@
 #include <filesystem>
 
 #include "hooks/GlesResolver.h"
+#include "hooks/EglResolver.h"
 
 #include <pl/Mod.hpp>
-#include <pl/memory/Hook.hpp>
 
 namespace levi_rescale {
-
-using GlViewportFn = void (*)(int x, int y, int width, int height);
-static void *g_originalViewport = nullptr;
-static int gTargetWidth = 0;
-static int gTargetHeight = 0;
-static int gMainWidth = -1;
-static int gMainHeight = -1;
-
-static void viewportDetour(int x, int y, int width, int height) {
-    static bool sLoggedMainViewport = false;
-
-    if (gMainWidth < 0 && width > 1 && height > 1) {
-        gMainWidth = width;
-        gMainHeight = height;
-        if (!sLoggedMainViewport) {
-            sLoggedMainViewport = true;
-            RescaleMod::instance().getSelf().getLogger().info("Game viewport: {}x{}", width, height);
-        }
-    }
-
-    if (gTargetWidth > 0 && gTargetHeight > 0 &&
-        width == gMainWidth && height == gMainHeight) {
-        width = gTargetWidth;
-        height = gTargetHeight;
-    }
-
-    if (g_originalViewport) {
-        auto original = reinterpret_cast<GlViewportFn>(g_originalViewport);
-        original(x, y, width, height);
-    }
-}
 
 RescaleMod &RescaleMod::instance() {
     static RescaleMod instance;
@@ -87,32 +56,20 @@ bool RescaleMod::enable() {
 
     self.getLogger().info("Config message: {}", mConfig.message);
 
-    gTargetWidth = mConfig.viewport_width;
-    gTargetHeight = mConfig.viewport_height;
-
     mGlesSymbols = resolveGlesSymbols(self.getLogger(), mConfig.preferred_gles_module);
     if (!mGlesSymbols) {
         self.getLogger().warn("GL viewport functions unavailable; later GL hooks will be skipped");
-        return true;
     }
 
-    mViewportHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlesSymbols->glViewport),
-                          reinterpret_cast<pl::memory::FuncPtr>(&viewportDetour),
-                          &g_originalViewport,
-                          pl::memory::HookPriority::Normal);
-
-    if (!mViewportHook->installed()) {
-        self.getLogger().error("Failed to install viewport hook");
+    mEglSymbols = resolveEglSymbols(self.getLogger());
+    if (!mEglSymbols) {
+        self.getLogger().warn("EGL functions unavailable; later EGL hooks will be skipped");
     }
     return true;
 }
 
 bool RescaleMod::disable() {
     getSelf().getLogger().debug("Disabling...");
-    if (mViewportHook) {
-        mViewportHook->reset();
-        mViewportHook.reset();
-    }
     return true;
 }
 

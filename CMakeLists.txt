@@ -122,6 +122,7 @@ add_library(${MOD_LIBRARY_NAME} SHARED
     src/mod/RescaleMod.cpp
     src/hooks/FboComposite.cpp
     src/hooks/GlesResolver.cpp
+    src/hooks/EglResolver.cpp
     src/hooks/ViewportScale.cpp
     src/hooks/WindowGeometry.cpp
 )

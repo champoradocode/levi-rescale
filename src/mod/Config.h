@@ -12,8 +12,6 @@ struct ModConfig {
     bool enabled = true;
     std::string message = "Hello from levi_rescale";
     std::string preferred_gles_module = "libGLESv2.so";
-    int viewport_width = 0;
-    int viewport_height = 0;
 };
 
 nlohmann::json makeDefaultConfigJson();
@@ -34,10 +32,6 @@ template <> struct pl::config::Schema<levi_rescale::ModConfig> {
             return {.title = "Message", .description = "Message written when the mod is enabled."};
         if (name == "preferred_gles_module")
             return {.title = "Preferred GLES module", .description = "GLES module to try first for glViewport/glScissor resolution."};
-        if (name == "viewport_width")
-            return {.title = "Viewport width", .description = "0 keeps the game's original value."};
-        if (name == "viewport_height")
-            return {.title = "Viewport height", .description = "0 keeps the game's original value."};
         return {};
     }
 };
