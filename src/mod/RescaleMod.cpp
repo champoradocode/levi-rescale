@@ -20,6 +20,23 @@ using EglSwapBuffersFn = EGLBoolean (*)(EGLDisplay, EGLSurface);
 static void *gOriginalEglQuerySurfaceRaw = nullptr;
 static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
+static void *gOriginalViewportRaw = nullptr;
+static bool gNeedLogViewportAfterEgl = false;
+
+using GlViewportFn = void (*)(int x, int y, int width, int height);
+
+static void viewportDetour(int x, int y, int width, int height) {
+    if (gNeedLogViewportAfterEgl && width > 1 && height > 1) {
+        gNeedLogViewportAfterEgl = false;
+        RescaleMod::instance().getSelf().getLogger().info(
+            "glViewport after EGL surface: {}x{}", width, height);
+    }
+
+    auto original = reinterpret_cast<GlViewportFn>(gOriginalViewportRaw);
+    if (original) {
+        original(x, y, width, height);
+    }
+}
 
 static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
                                       EGLNativeWindowType win, const EGLint *attribs) {
@@ -40,6 +57,7 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
         query(dpy, surface, EGL_WIDTH, &w);
         query(dpy, surface, EGL_HEIGHT, &h);
         RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
+        gNeedLogViewportAfterEgl = true;
     }
 
     return surface;
@@ -137,6 +155,18 @@ bool RescaleMod::enable() {
         self.getLogger().error("Failed to hook eglSwapBuffers");
     }
 
+    if (mGlesSymbols) {
+        mViewportHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlesSymbols->glViewport),
+                              reinterpret_cast<pl::memory::FuncPtr>(&viewportDetour),
+                              &gOriginalViewportRaw,
+                              pl::memory::HookPriority::Normal);
+        if (!mViewportHook->installed()) {
+            self.getLogger().error("Failed to hook glViewport for diagnostic logging");
+        }
+    } else {
+        self.getLogger().warn("Skipping viewport diagnostic hook because GLES symbols are unavailable");
+    }
+
     return true;
 }
 
@@ -149,6 +179,10 @@ bool RescaleMod::disable() {
     if (mEglSwapBuffersHook) {
         mEglSwapBuffersHook->reset();
         mEglSwapBuffersHook.reset();
+    }
+    if (mViewportHook) {
+        mViewportHook->reset();
+        mViewportHook.reset();
     }
     return true;
 }
