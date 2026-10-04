@@ -7,12 +7,24 @@
 
 namespace levi_rescale {
 
-std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger) {
-    const std::vector<std::string> candidates = {
+std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
+                                                      std::string_view preferredModule) {
+    const std::vector<std::string> allCandidates = {
         "libGLESv3.so",
         "libGLESv2.so",
         "libGLESv1_CM.so",
     };
+
+    std::vector<std::string> candidates;
+    if (!preferredModule.empty()) {
+        candidates.emplace_back(preferredModule);
+    }
+    for (const auto &candidate : allCandidates) {
+        if (candidate != preferredModule) {
+            candidates.push_back(candidate);
+        }
+    }
+
     const std::vector<std::string> signatures = {
         "glViewport",
         "glScissor",

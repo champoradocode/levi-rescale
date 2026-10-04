@@ -75,7 +75,7 @@ bool RescaleMod::enable() {
 
     self.getLogger().info("Config message: {}", mConfig.message);
 
-    mGlesSymbols = resolveGlesSymbols(self.getLogger());
+    mGlesSymbols = resolveGlesSymbols(self.getLogger(), mConfig.preferred_gles_module);
     if (!mGlesSymbols) {
         self.getLogger().warn("GL viewport functions unavailable; later GL hooks will be skipped");
         return true;

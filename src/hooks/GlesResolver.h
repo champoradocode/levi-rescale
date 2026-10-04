@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <pl/Logger.hpp>
 
@@ -14,6 +15,7 @@ struct ResolvedGlesSymbols {
     uintptr_t glScissor = 0;
 };
 
-std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger);
+std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
+                                                      std::string_view preferredModule);
 
 } // namespace levi_rescale

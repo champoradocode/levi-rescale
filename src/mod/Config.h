@@ -11,6 +11,7 @@ struct ModConfig {
     int version = 1;
     bool enabled = true;
     std::string message = "Hello from levi_rescale";
+    std::string preferred_gles_module = "libGLESv2.so";
 };
 
 nlohmann::json makeDefaultConfigJson();
@@ -29,6 +30,8 @@ template <> struct pl::config::Schema<levi_rescale::ModConfig> {
             return {.title = "Enabled", .description = "Turns Levi-ReScale behavior on or off."};
         if (name == "message")
             return {.title = "Message", .description = "Message written when the mod is enabled."};
+        if (name == "preferred_gles_module")
+            return {.title = "Preferred GLES module", .description = "GLES module to try first for glViewport/glScissor resolution."};
         return {};
     }
 };
