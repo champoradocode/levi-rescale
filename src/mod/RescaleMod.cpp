@@ -11,13 +11,27 @@ namespace levi_rescale {
 
 using GlViewportFn = void (*)(int x, int y, int width, int height);
 static void *g_originalViewport = nullptr;
+static int gTargetWidth = 0;
+static int gTargetHeight = 0;
+static int gMainWidth = -1;
+static int gMainHeight = -1;
 
 static void viewportDetour(int x, int y, int width, int height) {
     static bool sLoggedMainViewport = false;
 
-    if (!sLoggedMainViewport && width > 1 && height > 1) {
-        sLoggedMainViewport = true;
-        RescaleMod::instance().getSelf().getLogger().info("Game viewport: {}x{}", width, height);
+    if (gMainWidth < 0 && width > 1 && height > 1) {
+        gMainWidth = width;
+        gMainHeight = height;
+        if (!sLoggedMainViewport) {
+            sLoggedMainViewport = true;
+            RescaleMod::instance().getSelf().getLogger().info("Game viewport: {}x{}", width, height);
+        }
+    }
+
+    if (gTargetWidth > 0 && gTargetHeight > 0 &&
+        width == gMainWidth && height == gMainHeight) {
+        width = gTargetWidth;
+        height = gTargetHeight;
     }
 
     if (g_originalViewport) {
@@ -72,6 +86,9 @@ bool RescaleMod::enable() {
     }
 
     self.getLogger().info("Config message: {}", mConfig.message);
+
+    gTargetWidth = mConfig.viewport_width;
+    gTargetHeight = mConfig.viewport_height;
 
     mGlesSymbols = resolveGlesSymbols(self.getLogger(), mConfig.preferred_gles_module);
     if (!mGlesSymbols) {
