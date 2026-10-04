@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include <EGL/egl.h>
+#include <android/native_window.h>
 
 #include "hooks/GlesResolver.h"
 #include "hooks/EglResolver.h"
@@ -24,6 +25,10 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
                                       EGLNativeWindowType win, const EGLint *attribs) {
     EGLSurface surface = nullptr;
     auto create = reinterpret_cast<EglCreateWindowSurfaceFn>(gOriginalCreateSurfaceRaw);
+    if (win) {
+        auto *nativeWindow = static_cast<ANativeWindow *>(win);
+        ANativeWindow_setBuffersGeometry(nativeWindow, 1200, 540, 0);
+    }
     if (create) {
         surface = create(dpy, cfg, win, attribs);
     }

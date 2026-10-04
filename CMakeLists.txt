@@ -148,8 +148,10 @@ target_link_options(${MOD_LIBRARY_NAME}
 )
 
 find_library(log-lib log REQUIRED)
+find_library(android-lib android REQUIRED)
 target_link_libraries(${MOD_LIBRARY_NAME} PRIVATE
     ${log-lib}
+    ${android-lib}
     nlohmann_json::nlohmann_json
     Boost::pfr
     magic_enum::magic_enum
