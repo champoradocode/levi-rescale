@@ -7,6 +7,7 @@
 #include "hooks/EglResolver.h"
 
 #include <pl/Mod.hpp>
+#include <pl/memory/Hook.hpp>
 
 namespace levi_rescale {
 
@@ -29,6 +30,8 @@ class RescaleMod {
     std::optional<pl::config::ConfigFile<ModConfig>> mConfigFile;
     std::optional<ResolvedGlesSymbols> mGlesSymbols;
     std::optional<ResolvedEglSymbols> mEglSymbols;
+    std::optional<pl::memory::HookHandle> mEglCreateSurfaceHook;
+    std::optional<pl::memory::HookHandle> mEglSwapBuffersHook;
   };
 
 } // namespace levi_rescale

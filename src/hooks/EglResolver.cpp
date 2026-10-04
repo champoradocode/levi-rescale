@@ -10,21 +10,25 @@ std::optional<ResolvedEglSymbols> resolveEglSymbols(pl::log::Logger &logger) {
     const std::vector<std::string> signatures = {
         "eglCreateWindowSurface",
         "eglSwapBuffers",
+        "eglQuerySurface",
     };
 
     const auto resolved = pl::memory::resolveSignatures(signatures, "libEGL.so");
     const auto createIt = resolved.find("eglCreateWindowSurface");
     const auto swapIt = resolved.find("eglSwapBuffers");
+    const auto queryIt = resolved.find("eglQuerySurface");
 
     const uintptr_t create = createIt != resolved.end() ? createIt->second : 0;
     const uintptr_t swap = swapIt != resolved.end() ? swapIt->second : 0;
+    const uintptr_t query = queryIt != resolved.end() ? queryIt->second : 0;
 
-    logger.info("libEGL.so: eglCreateWindowSurface = 0x{:x}, eglSwapBuffers = 0x{:x}",
+    logger.info("libEGL.so: eglCreateWindowSurface = 0x{:x}, eglSwapBuffers = 0x{:x}, eglQuerySurface = 0x{:x}",
                 static_cast<unsigned long long>(create),
-                static_cast<unsigned long long>(swap));
+                static_cast<unsigned long long>(swap),
+                static_cast<unsigned long long>(query));
 
     if (create != 0 && swap != 0) {
-        return ResolvedEglSymbols{"libEGL.so", create, swap};
+        return ResolvedEglSymbols{"libEGL.so", create, swap, query};
     }
 
     logger.warn("Failed to resolve EGL functions in libEGL.so");

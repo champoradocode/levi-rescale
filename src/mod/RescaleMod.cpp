@@ -2,12 +2,57 @@
 
 #include <filesystem>
 
+#include <EGL/egl.h>
+
 #include "hooks/GlesResolver.h"
 #include "hooks/EglResolver.h"
 
 #include <pl/Mod.hpp>
 
 namespace levi_rescale {
+
+using EglQuerySurfaceFn = EGLBoolean (*)(EGLDisplay, EGLSurface, EGLint, EGLint *);
+using EglCreateWindowSurfaceFn =
+    EGLSurface (*)(EGLDisplay, EGLConfig, EGLNativeWindowType, const EGLint *);
+using EglSwapBuffersFn = EGLBoolean (*)(EGLDisplay, EGLSurface);
+
+static void *gOriginalEglQuerySurfaceRaw = nullptr;
+static void *gOriginalCreateSurfaceRaw = nullptr;
+static void *gOriginalSwapBuffersRaw = nullptr;
+
+static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
+                                      EGLNativeWindowType win, const EGLint *attribs) {
+    EGLSurface surface = nullptr;
+    auto create = reinterpret_cast<EglCreateWindowSurfaceFn>(gOriginalCreateSurfaceRaw);
+    if (create) {
+        surface = create(dpy, cfg, win, attribs);
+    }
+
+    if (surface != EGL_NO_SURFACE && gOriginalEglQuerySurfaceRaw) {
+        auto query = reinterpret_cast<EglQuerySurfaceFn>(gOriginalEglQuerySurfaceRaw);
+        EGLint w = 0;
+        EGLint h = 0;
+        query(dpy, surface, EGL_WIDTH, &w);
+        query(dpy, surface, EGL_HEIGHT, &h);
+        RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
+    }
+
+    return surface;
+}
+
+static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
+    static bool sLoggedSwapBuffers = false;
+    if (!sLoggedSwapBuffers) {
+        sLoggedSwapBuffers = true;
+        RescaleMod::instance().getSelf().getLogger().info("eglSwapBuffers called");
+    }
+
+    auto swap = reinterpret_cast<EglSwapBuffersFn>(gOriginalSwapBuffersRaw);
+    if (swap) {
+        return swap(dpy, surface);
+    }
+    return EGL_FALSE;
+}
 
 RescaleMod &RescaleMod::instance() {
     static RescaleMod instance;
@@ -64,12 +109,42 @@ bool RescaleMod::enable() {
     mEglSymbols = resolveEglSymbols(self.getLogger());
     if (!mEglSymbols) {
         self.getLogger().warn("EGL functions unavailable; later EGL hooks will be skipped");
+        return true;
     }
+
+    gOriginalEglQuerySurfaceRaw = mEglSymbols->querySurface != 0
+        ? reinterpret_cast<void *>(mEglSymbols->querySurface)
+        : nullptr;
+
+    mEglCreateSurfaceHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mEglSymbols->createWindowSurface),
+                                  reinterpret_cast<pl::memory::FuncPtr>(&createSurfaceDetour),
+                                  &gOriginalCreateSurfaceRaw,
+                                  pl::memory::HookPriority::Normal);
+    if (!mEglCreateSurfaceHook->installed()) {
+        self.getLogger().error("Failed to hook eglCreateWindowSurface");
+    }
+
+    mEglSwapBuffersHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mEglSymbols->swapBuffers),
+                                reinterpret_cast<pl::memory::FuncPtr>(&swapBuffersDetour),
+                                &gOriginalSwapBuffersRaw,
+                                pl::memory::HookPriority::Normal);
+    if (!mEglSwapBuffersHook->installed()) {
+        self.getLogger().error("Failed to hook eglSwapBuffers");
+    }
+
     return true;
 }
 
 bool RescaleMod::disable() {
     getSelf().getLogger().debug("Disabling...");
+    if (mEglCreateSurfaceHook) {
+        mEglCreateSurfaceHook->reset();
+        mEglCreateSurfaceHook.reset();
+    }
+    if (mEglSwapBuffersHook) {
+        mEglSwapBuffersHook->reset();
+        mEglSwapBuffersHook.reset();
+    }
     return true;
 }
 
