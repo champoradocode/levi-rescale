@@ -32,7 +32,6 @@ class RescaleMod {
     std::optional<ResolvedEglSymbols> mEglSymbols;
     std::optional<pl::memory::HookHandle> mEglCreateSurfaceHook;
     std::optional<pl::memory::HookHandle> mEglSwapBuffersHook;
-    std::optional<pl::memory::HookHandle> mViewportHook;
   };
 
 } // namespace levi_rescale
