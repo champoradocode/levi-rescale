@@ -13,12 +13,10 @@ using GlViewportFn = void (*)(int x, int y, int width, int height);
 static void *g_originalViewport = nullptr;
 
 static void viewportDetour(int x, int y, int width, int height) {
-    static int sLastWidth = -1;
-    static int sLastHeight = -1;
+    static bool sLoggedMainViewport = false;
 
-    if (width != sLastWidth || height != sLastHeight) {
-        sLastWidth = width;
-        sLastHeight = height;
+    if (!sLoggedMainViewport && width > 1 && height > 1) {
+        sLoggedMainViewport = true;
         RescaleMod::instance().getSelf().getLogger().info("Game viewport: {}x{}", width, height);
     }
 
