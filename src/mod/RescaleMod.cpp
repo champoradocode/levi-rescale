@@ -5,6 +5,7 @@
 #include <EGL/egl.h>
 #include "hooks/GlesResolver.h"
 #include "hooks/EglResolver.h"
+#include "hooks/GlFboResolver.h"
 
 #include <pl/Mod.hpp>
 
@@ -104,6 +105,13 @@ bool RescaleMod::enable() {
     mGlesSymbols = resolveGlesSymbols(self.getLogger(), mConfig.preferred_gles_module);
     if (!mGlesSymbols) {
         self.getLogger().warn("GL viewport functions unavailable; later GL hooks will be skipped");
+    }
+
+    if (mGlesSymbols) {
+        mGlFboSymbols = resolveGlFboSymbols(self.getLogger(), mGlesSymbols->module);
+        if (!mGlFboSymbols) {
+            self.getLogger().warn("GL FBO symbols unavailable; FBO hooking will be skipped");
+        }
     }
 
     mEglSymbols = resolveEglSymbols(self.getLogger());

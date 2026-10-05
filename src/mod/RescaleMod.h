@@ -5,6 +5,7 @@
 #include "mod/Config.h"
 #include "hooks/GlesResolver.h"
 #include "hooks/EglResolver.h"
+#include "hooks/GlFboResolver.h"
 
 #include <pl/Mod.hpp>
 #include <pl/memory/Hook.hpp>
@@ -30,6 +31,7 @@ class RescaleMod {
     std::optional<pl::config::ConfigFile<ModConfig>> mConfigFile;
     std::optional<ResolvedGlesSymbols> mGlesSymbols;
     std::optional<ResolvedEglSymbols> mEglSymbols;
+    std::optional<ResolvedGlFboSymbols> mGlFboSymbols;
     std::optional<pl::memory::HookHandle> mEglCreateSurfaceHook;
     std::optional<pl::memory::HookHandle> mEglSwapBuffersHook;
   };
