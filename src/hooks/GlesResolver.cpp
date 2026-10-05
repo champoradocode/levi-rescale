@@ -12,7 +12,6 @@ std::optional<ResolvedGlesSymbols> resolveGlesSymbols(pl::log::Logger &logger,
     const std::vector<std::string> allCandidates = {
         "libGLESv2.so",
         "libGLESv3.so",
-        "libGLESv1_CM.so",
     };
 
     std::vector<std::string> candidates;
