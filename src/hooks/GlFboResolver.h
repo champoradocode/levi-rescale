@@ -19,6 +19,7 @@ struct ResolvedGlFboSymbols {
     uintptr_t glTexImage2D = 0;
     uintptr_t glBlitFramebuffer = 0;
     uintptr_t glViewport = 0;
+    uintptr_t glCheckFramebufferStatus = 0;
 };
 
 std::optional<ResolvedGlFboSymbols>

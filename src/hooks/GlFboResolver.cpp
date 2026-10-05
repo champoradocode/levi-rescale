@@ -18,6 +18,7 @@ resolveGlFboSymbols(pl::log::Logger &logger, std::string_view module) {
         "glTexImage2D",
         "glBlitFramebuffer",
         "glViewport",
+        "glCheckFramebufferStatus",
     };
 
     const auto resolved = pl::memory::resolveSignatures(signatures, module);
@@ -37,8 +38,9 @@ resolveGlFboSymbols(pl::log::Logger &logger, std::string_view module) {
     out.glTexImage2D = get("glTexImage2D");
     out.glBlitFramebuffer = get("glBlitFramebuffer");
     out.glViewport = get("glViewport");
+    out.glCheckFramebufferStatus = get("glCheckFramebufferStatus");
 
-    logger.info("{}: glGenFramebuffers=0x{:x}, glBindFramebuffer=0x{:x}, glFramebufferTexture2D=0x{:x}, glGenTextures=0x{:x}, glBindTexture=0x{:x}, glTexImage2D=0x{:x}, glBlitFramebuffer=0x{:x}, glViewport=0x{:x}",
+    logger.info("{}: glGenFramebuffers=0x{:x}, glBindFramebuffer=0x{:x}, glFramebufferTexture2D=0x{:x}, glGenTextures=0x{:x}, glBindTexture=0x{:x}, glTexImage2D=0x{:x}, glBlitFramebuffer=0x{:x}, glViewport=0x{:x}, glCheckFramebufferStatus=0x{:x}",
                 std::string(module),
                 static_cast<unsigned long long>(out.glGenFramebuffers),
                 static_cast<unsigned long long>(out.glBindFramebuffer),
@@ -47,12 +49,13 @@ resolveGlFboSymbols(pl::log::Logger &logger, std::string_view module) {
                 static_cast<unsigned long long>(out.glBindTexture),
                 static_cast<unsigned long long>(out.glTexImage2D),
                 static_cast<unsigned long long>(out.glBlitFramebuffer),
-                static_cast<unsigned long long>(out.glViewport));
+                static_cast<unsigned long long>(out.glViewport),
+                static_cast<unsigned long long>(out.glCheckFramebufferStatus));
 
     const bool ok = out.glGenFramebuffers && out.glBindFramebuffer &&
                     out.glFramebufferTexture2D && out.glGenTextures &&
                     out.glBindTexture && out.glTexImage2D && out.glBlitFramebuffer &&
-                    out.glViewport;
+                    out.glViewport && out.glCheckFramebufferStatus;
 
     if (ok) {
         return out;

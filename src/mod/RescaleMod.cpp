@@ -1,8 +1,9 @@
 #include "mod/RescaleMod.h"
 
 #include <filesystem>
-
 #include <EGL/egl.h>
+#include <GLES3/gl3.h>
+
 #include "hooks/GlesResolver.h"
 #include "hooks/EglResolver.h"
 #include "hooks/GlFboResolver.h"
@@ -20,6 +21,30 @@ static void *gOriginalEglQuerySurfaceRaw = nullptr;
 static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
 
+using GlGenFramebuffersFn = void (*)(GLsizei, GLuint *);
+using GlBindFramebufferFn = void (*)(GLenum, GLuint);
+using GlFramebufferTexture2DFn = void (*)(GLenum, GLenum, GLenum, GLuint, GLint);
+using GlGenTexturesFn = void (*)(GLsizei, GLuint *);
+using GlBindTextureFn = void (*)(GLenum, GLuint);
+using GlTexImage2DFn = void (*)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void *);
+using GlCheckFramebufferStatusFn = GLenum (*)(GLenum);
+
+static GlGenFramebuffersFn gGlGenFramebuffers = nullptr;
+static GlBindFramebufferFn gGlBindFramebuffer = nullptr;
+static GlFramebufferTexture2DFn gGlFramebufferTexture2D = nullptr;
+static GlGenTexturesFn gGlGenTextures = nullptr;
+static GlBindTextureFn gGlBindTexture = nullptr;
+static GlTexImage2DFn gGlTexImage2D = nullptr;
+static GlCheckFramebufferStatusFn gGlCheckFramebufferStatus = nullptr;
+
+static GLuint gSmallFbo = 0;
+static GLuint gSmallTexture = 0;
+static int gScreenWidth = 0;
+static int gScreenHeight = 0;
+static int gSmallWidth = 0;
+static int gSmallHeight = 0;
+static bool gFboReady = false;
+
 static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
                                       EGLNativeWindowType win, const EGLint *attribs) {
     EGLSurface surface = nullptr;
@@ -36,6 +61,10 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
         query(dpy, surface, EGL_WIDTH, &w);
         query(dpy, surface, EGL_HEIGHT, &h);
         RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
+        gScreenWidth = w;
+        gScreenHeight = h;
+        gSmallWidth = w / 2;
+        gSmallHeight = h / 2;
     }
 
     return surface;
@@ -46,6 +75,34 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
     if (!sLoggedSwapBuffers) {
         sLoggedSwapBuffers = true;
         RescaleMod::instance().getSelf().getLogger().info("eglSwapBuffers called");
+    }
+
+    if (!gFboReady && gScreenWidth > 0 && gScreenHeight > 0 && gSmallWidth > 0 &&
+        gSmallHeight > 0 && gGlGenTextures && gGlBindTexture && gGlTexImage2D &&
+        gGlGenFramebuffers && gGlBindFramebuffer && gGlFramebufferTexture2D) {
+        gGlGenTextures(1, &gSmallTexture);
+        gGlBindTexture(GL_TEXTURE_2D, gSmallTexture);
+        gGlTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gSmallWidth, gSmallHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        gGlGenFramebuffers(1, &gSmallFbo);
+        gGlBindFramebuffer(GL_FRAMEBUFFER, gSmallFbo);
+        gGlFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gSmallTexture, 0);
+
+        if (gGlCheckFramebufferStatus) {
+            const GLenum status = gGlCheckFramebufferStatus(GL_FRAMEBUFFER);
+            if (status != GL_FRAMEBUFFER_COMPLETE) {
+                RescaleMod::instance().getSelf().getLogger().error(
+                    "Small FBO incomplete: 0x{:x}", static_cast<unsigned int>(status));
+            } else {
+                gFboReady = true;
+                RescaleMod::instance().getSelf().getLogger().info(
+                    "Created small FBO: {}x{}", gSmallWidth, gSmallHeight);
+            }
+        } else {
+            gFboReady = true;
+            RescaleMod::instance().getSelf().getLogger().info(
+                "Created small FBO: {}x{}", gSmallWidth, gSmallHeight);
+        }
     }
 
     auto swap = reinterpret_cast<EglSwapBuffersFn>(gOriginalSwapBuffersRaw);
@@ -112,6 +169,18 @@ bool RescaleMod::enable() {
         if (!mGlFboSymbols) {
             self.getLogger().warn("GL FBO symbols unavailable; FBO hooking will be skipped");
         }
+    }
+
+    if (mGlFboSymbols) {
+        gGlGenFramebuffers = reinterpret_cast<GlGenFramebuffersFn>(mGlFboSymbols->glGenFramebuffers);
+        gGlBindFramebuffer = reinterpret_cast<GlBindFramebufferFn>(mGlFboSymbols->glBindFramebuffer);
+        gGlFramebufferTexture2D = reinterpret_cast<GlFramebufferTexture2DFn>(mGlFboSymbols->glFramebufferTexture2D);
+        gGlGenTextures = reinterpret_cast<GlGenTexturesFn>(mGlFboSymbols->glGenTextures);
+        gGlBindTexture = reinterpret_cast<GlBindTextureFn>(mGlFboSymbols->glBindTexture);
+        gGlTexImage2D = reinterpret_cast<GlTexImage2DFn>(mGlFboSymbols->glTexImage2D);
+        gGlCheckFramebufferStatus = mGlFboSymbols->glCheckFramebufferStatus != 0
+            ? reinterpret_cast<GlCheckFramebufferStatusFn>(mGlFboSymbols->glCheckFramebufferStatus)
+            : nullptr;
     }
 
     mEglSymbols = resolveEglSymbols(self.getLogger());
