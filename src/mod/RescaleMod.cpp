@@ -20,6 +20,8 @@ using EglSwapBuffersFn = EGLBoolean (*)(EGLDisplay, EGLSurface);
 static void *gOriginalEglQuerySurfaceRaw = nullptr;
 static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
+static void *gOriginalBindFramebufferRaw = nullptr;
+static bool gInBlit = false;
 
 using GlGenFramebuffersFn = void (*)(GLsizei, GLuint *);
 using GlBindFramebufferFn = void (*)(GLenum, GLuint);
@@ -110,6 +112,21 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
         return swap(dpy, surface);
     }
     return EGL_FALSE;
+}
+
+static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
+    auto original = reinterpret_cast<GlBindFramebufferFn>(gOriginalBindFramebufferRaw);
+
+    if (!gInBlit && gFboReady && framebuffer == 0 && target == GL_FRAMEBUFFER) {
+        if (original) {
+            original(target, gSmallFbo);
+        }
+        return;
+    }
+
+    if (original) {
+        original(target, framebuffer);
+    }
 }
 
 RescaleMod &RescaleMod::instance() {
@@ -209,6 +226,16 @@ bool RescaleMod::enable() {
         self.getLogger().error("Failed to hook eglSwapBuffers");
     }
 
+    if (mGlFboSymbols && gGlBindFramebuffer) {
+        mGlBindFramebufferHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlFboSymbols->glBindFramebuffer),
+                                       reinterpret_cast<pl::memory::FuncPtr>(&glBindFramebufferDetour),
+                                       &gOriginalBindFramebufferRaw,
+                                       pl::memory::HookPriority::Normal);
+        if (!mGlBindFramebufferHook->installed()) {
+            self.getLogger().error("Failed to hook glBindFramebuffer");
+        }
+    }
+
     return true;
 }
 
@@ -221,6 +248,10 @@ bool RescaleMod::disable() {
     if (mEglSwapBuffersHook) {
         mEglSwapBuffersHook->reset();
         mEglSwapBuffersHook.reset();
+    }
+    if (mGlBindFramebufferHook) {
+        mGlBindFramebufferHook->reset();
+        mGlBindFramebufferHook.reset();
     }
     return true;
 }

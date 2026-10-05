@@ -34,6 +34,7 @@ class RescaleMod {
     std::optional<ResolvedGlFboSymbols> mGlFboSymbols;
     std::optional<pl::memory::HookHandle> mEglCreateSurfaceHook;
     std::optional<pl::memory::HookHandle> mEglSwapBuffersHook;
+    std::optional<pl::memory::HookHandle> mGlBindFramebufferHook;
   };
 
 } // namespace levi_rescale
