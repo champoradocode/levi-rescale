@@ -194,6 +194,20 @@ static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
 }
 
 static void viewportDetour(int x, int y, int width, int height) {
+    static int sLastX = -1;
+    static int sLastY = -1;
+    static int sLastWidth = -1;
+    static int sLastHeight = -1;
+
+    if (x != sLastX || y != sLastY || width != sLastWidth || height != sLastHeight) {
+        sLastX = x;
+        sLastY = y;
+        sLastWidth = width;
+        sLastHeight = height;
+        RescaleMod::instance().getSelf().getLogger().info(
+            "glViewport input: {}x{} at ({}, {})", width, height, x, y);
+    }
+
     if (gFboReady && gSmallWidth > 0 && gSmallHeight > 0 &&
         width > gSmallWidth && height > gSmallHeight) {
         width = gSmallWidth;
