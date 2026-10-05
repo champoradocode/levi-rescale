@@ -109,6 +109,7 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
         }
     }
 
+#if 0
     if (!gFboReady && isMainSurface && gGlGenTextures && gGlBindTexture && gGlTexImage2D &&
         gGlGenFramebuffers && gGlBindFramebuffer && gGlFramebufferTexture2D) {
         gGlGenTextures(1, &gSmallTexture);
@@ -150,6 +151,7 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
 
         gInBlit = false;
     }
+#endif
 
     auto swap = reinterpret_cast<EglSwapBuffersFn>(gOriginalSwapBuffersRaw);
     if (swap) {
