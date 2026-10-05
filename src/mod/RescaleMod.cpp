@@ -69,10 +69,13 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
         query(dpy, surface, EGL_WIDTH, &w);
         query(dpy, surface, EGL_HEIGHT, &h);
         RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
-        gScreenWidth = w;
-        gScreenHeight = h;
-        gSmallWidth = w / 2;
-        gSmallHeight = h / 2;
+
+        if (w >= 1000 && h >= 400) {
+            gScreenWidth = w;
+            gScreenHeight = h;
+            gSmallWidth = w / 2;
+            gSmallHeight = h / 2;
+        }
     }
 
     return surface;
