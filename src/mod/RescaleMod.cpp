@@ -22,6 +22,7 @@ static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
 static void *gOriginalBindFramebufferRaw = nullptr;
 static void *gOriginalGlBlitFramebufferRaw = nullptr;
+static void *gOriginalViewportRaw = nullptr;
 static bool gInBlit = false;
 
 using GlGenFramebuffersFn = void (*)(GLsizei, GLuint *);
@@ -34,6 +35,7 @@ using GlCheckFramebufferStatusFn = GLenum (*)(GLenum);
 using GlBlitFramebufferFn = void (*)(GLint, GLint, GLint, GLint,
                                      GLint, GLint, GLint, GLint,
                                      GLenum, GLenum);
+using GlViewportFn = void (*)(int, int, int, int);
 
 static GlGenFramebuffersFn gGlGenFramebuffers = nullptr;
 static GlBindFramebufferFn gGlBindFramebuffer = nullptr;
@@ -155,6 +157,19 @@ static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
     }
 }
 
+static void viewportDetour(int x, int y, int width, int height) {
+    if (gFboReady && gSmallWidth > 0 && gSmallHeight > 0 &&
+        width > gSmallWidth && height > gSmallHeight) {
+        width = gSmallWidth;
+        height = gSmallHeight;
+    }
+
+    auto original = reinterpret_cast<GlViewportFn>(gOriginalViewportRaw);
+    if (original) {
+        original(x, y, width, height);
+    }
+}
+
 RescaleMod &RescaleMod::instance() {
     static RescaleMod instance;
     return instance;
@@ -265,6 +280,16 @@ bool RescaleMod::enable() {
         }
     }
 
+    if (mGlesSymbols && mGlesSymbols->glViewport != 0) {
+        mViewportHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlesSymbols->glViewport),
+                              reinterpret_cast<pl::memory::FuncPtr>(&viewportDetour),
+                              &gOriginalViewportRaw,
+                              pl::memory::HookPriority::Normal);
+        if (!mViewportHook->installed()) {
+            self.getLogger().error("Failed to hook glViewport");
+        }
+    }
+
     return true;
 }
 
@@ -281,6 +306,10 @@ bool RescaleMod::disable() {
     if (mGlBindFramebufferHook) {
         mGlBindFramebufferHook->reset();
         mGlBindFramebufferHook.reset();
+    }
+    if (mViewportHook) {
+        mViewportHook->reset();
+        mViewportHook.reset();
     }
     return true;
 }
