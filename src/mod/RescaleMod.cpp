@@ -16,6 +16,7 @@ using EglQuerySurfaceFn = EGLBoolean (*)(EGLDisplay, EGLSurface, EGLint, EGLint 
 using EglCreateWindowSurfaceFn =
     EGLSurface (*)(EGLDisplay, EGLConfig, EGLNativeWindowType, const EGLint *);
 using EglSwapBuffersFn = EGLBoolean (*)(EGLDisplay, EGLSurface);
+using EglMakeCurrentFn = EGLBoolean (*)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
 
 static void *gOriginalEglQuerySurfaceRaw = nullptr;
 static void *gOriginalCreateSurfaceRaw = nullptr;
@@ -24,6 +25,9 @@ static void *gOriginalBindFramebufferRaw = nullptr;
 static void *gOriginalGlBlitFramebufferRaw = nullptr;
 static void *gOriginalViewportRaw = nullptr;
 static bool gInBlit = false;
+static EGLSurface gCurrentDrawSurface = nullptr;
+static EGLSurface gMainEglSurface = nullptr;
+static void *gOriginalMakeCurrentRaw = nullptr;
 
 using GlGenFramebuffersFn = void (*)(GLsizei, GLuint *);
 using GlBindFramebufferFn = void (*)(GLenum, GLuint);
@@ -68,13 +72,12 @@ static EGLSurface createSurfaceDetour(EGLDisplay dpy, EGLConfig cfg,
         EGLint h = 0;
         query(dpy, surface, EGL_WIDTH, &w);
         query(dpy, surface, EGL_HEIGHT, &h);
-        RescaleMod::instance().getSelf().getLogger().info("EGL surface: {}x{}", w, h);
-
         if (w >= 1000 && h >= 400) {
             gScreenWidth = w;
             gScreenHeight = h;
             gSmallWidth = w / 2;
             gSmallHeight = h / 2;
+            gMainEglSurface = surface;
         }
     }
 
@@ -88,8 +91,25 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
         RescaleMod::instance().getSelf().getLogger().info("eglSwapBuffers called");
     }
 
-    if (!gFboReady && gScreenWidth > 0 && gScreenHeight > 0 && gSmallWidth > 0 &&
-        gSmallHeight > 0 && gGlGenTextures && gGlBindTexture && gGlTexImage2D &&
+    bool isMainSurface = false;
+    if (gOriginalEglQuerySurfaceRaw != nullptr) {
+        auto query = reinterpret_cast<EglQuerySurfaceFn>(gOriginalEglQuerySurfaceRaw);
+        EGLint w = 0;
+        EGLint h = 0;
+        query(dpy, surface, EGL_WIDTH, &w);
+        query(dpy, surface, EGL_HEIGHT, &h);
+
+        if (w >= 1000 && h >= 400) {
+            isMainSurface = true;
+            gMainEglSurface = surface;
+            gScreenWidth = w;
+            gScreenHeight = h;
+            gSmallWidth = w / 2;
+            gSmallHeight = h / 2;
+        }
+    }
+
+    if (!gFboReady && isMainSurface && gGlGenTextures && gGlBindTexture && gGlTexImage2D &&
         gGlGenFramebuffers && gGlBindFramebuffer && gGlFramebufferTexture2D) {
         gGlGenTextures(1, &gSmallTexture);
         gGlBindTexture(GL_TEXTURE_2D, gSmallTexture);
@@ -116,7 +136,7 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
         }
     }
 
-    if (gFboReady && gOriginalGlBlitFramebufferRaw && gOriginalBindFramebufferRaw) {
+    if (gFboReady && isMainSurface && gOriginalGlBlitFramebufferRaw && gOriginalBindFramebufferRaw) {
         gInBlit = true;
 
         auto originalBind = reinterpret_cast<GlBindFramebufferFn>(gOriginalBindFramebufferRaw);
@@ -138,10 +158,23 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
     return EGL_FALSE;
 }
 
+static EGLBoolean makeCurrentDetour(EGLDisplay dpy, EGLSurface draw,
+                                    EGLSurface read, EGLContext ctx) {
+    auto makeCurrent = reinterpret_cast<EglMakeCurrentFn>(gOriginalMakeCurrentRaw);
+    const EGLBoolean ok = makeCurrent != nullptr ? makeCurrent(dpy, draw, read, ctx) : EGL_FALSE;
+
+    if (ok == EGL_TRUE) {
+        gCurrentDrawSurface = draw;
+    }
+
+    return ok;
+}
+
 static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
     auto original = reinterpret_cast<GlBindFramebufferFn>(gOriginalBindFramebufferRaw);
 
-    if (!gInBlit && gFboReady && framebuffer == 0 && target == GL_FRAMEBUFFER) {
+    if (!gInBlit && gFboReady && framebuffer == 0 && target == GL_FRAMEBUFFER &&
+        gCurrentDrawSurface == gMainEglSurface) {
         static bool sLoggedBindRedirect = false;
         if (!sLoggedBindRedirect) {
             sLoggedBindRedirect = true;
@@ -273,6 +306,17 @@ bool RescaleMod::enable() {
         self.getLogger().error("Failed to hook eglSwapBuffers");
     }
 
+    if (mEglSymbols->makeCurrent != 0) {
+        gOriginalMakeCurrentRaw = reinterpret_cast<void *>(mEglSymbols->makeCurrent);
+        mEglMakeCurrentHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mEglSymbols->makeCurrent),
+                                    reinterpret_cast<pl::memory::FuncPtr>(&makeCurrentDetour),
+                                    &gOriginalMakeCurrentRaw,
+                                    pl::memory::HookPriority::Normal);
+        if (!mEglMakeCurrentHook->installed()) {
+            self.getLogger().error("Failed to hook eglMakeCurrent");
+        }
+    }
+
     if (mGlFboSymbols && gGlBindFramebuffer) {
         mGlBindFramebufferHook.emplace(reinterpret_cast<pl::memory::FuncPtr>(mGlFboSymbols->glBindFramebuffer),
                                        reinterpret_cast<pl::memory::FuncPtr>(&glBindFramebufferDetour),
@@ -305,6 +349,10 @@ bool RescaleMod::disable() {
     if (mEglSwapBuffersHook) {
         mEglSwapBuffersHook->reset();
         mEglSwapBuffersHook.reset();
+    }
+    if (mEglMakeCurrentHook) {
+        mEglMakeCurrentHook->reset();
+        mEglMakeCurrentHook.reset();
     }
     if (mGlBindFramebufferHook) {
         mGlBindFramebufferHook->reset();
