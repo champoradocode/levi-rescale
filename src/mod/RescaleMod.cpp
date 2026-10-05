@@ -1,6 +1,7 @@
 #include "mod/RescaleMod.h"
-
 #include <filesystem>
+#include <string>
+
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 
@@ -196,18 +197,13 @@ static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
 }
 
 static void viewportDetour(int x, int y, int width, int height) {
-    static int sLastX = -1;
-    static int sLastY = -1;
-    static int sLastWidth = -1;
-    static int sLastHeight = -1;
-
-    if (x != sLastX || y != sLastY || width != sLastWidth || height != sLastHeight) {
-        sLastX = x;
-        sLastY = y;
-        sLastWidth = width;
-        sLastHeight = height;
+    static std::string sSeen;
+    const std::string key = std::to_string(width) + "x" + std::to_string(height) + "@(" +
+                            std::to_string(x) + "," + std::to_string(y) + ")";
+    if (sSeen.find(key) == std::string::npos) {
+        sSeen += key + ";";
         RescaleMod::instance().getSelf().getLogger().info(
-            "glViewport input: {}x{} at ({}, {})", width, height, x, y);
+            "glViewport unique input: {}", key);
     }
 
     if (gFboReady && gSmallWidth > 0 && gSmallHeight > 0 &&
