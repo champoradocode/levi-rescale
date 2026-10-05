@@ -21,6 +21,7 @@ static void *gOriginalEglQuerySurfaceRaw = nullptr;
 static void *gOriginalCreateSurfaceRaw = nullptr;
 static void *gOriginalSwapBuffersRaw = nullptr;
 static void *gOriginalBindFramebufferRaw = nullptr;
+static void *gOriginalGlBlitFramebufferRaw = nullptr;
 static bool gInBlit = false;
 
 using GlGenFramebuffersFn = void (*)(GLsizei, GLuint *);
@@ -30,6 +31,9 @@ using GlGenTexturesFn = void (*)(GLsizei, GLuint *);
 using GlBindTextureFn = void (*)(GLenum, GLuint);
 using GlTexImage2DFn = void (*)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void *);
 using GlCheckFramebufferStatusFn = GLenum (*)(GLenum);
+using GlBlitFramebufferFn = void (*)(GLint, GLint, GLint, GLint,
+                                     GLint, GLint, GLint, GLint,
+                                     GLenum, GLenum);
 
 static GlGenFramebuffersFn gGlGenFramebuffers = nullptr;
 static GlBindFramebufferFn gGlBindFramebuffer = nullptr;
@@ -107,6 +111,21 @@ static EGLBoolean swapBuffersDetour(EGLDisplay dpy, EGLSurface surface) {
         }
     }
 
+    if (gFboReady && gOriginalGlBlitFramebufferRaw && gOriginalBindFramebufferRaw) {
+        gInBlit = true;
+
+        auto originalBind = reinterpret_cast<GlBindFramebufferFn>(gOriginalBindFramebufferRaw);
+        auto blit = reinterpret_cast<GlBlitFramebufferFn>(gOriginalGlBlitFramebufferRaw);
+
+        originalBind(GL_READ_FRAMEBUFFER, gSmallFbo);
+        originalBind(GL_DRAW_FRAMEBUFFER, 0);
+        blit(0, 0, gSmallWidth, gSmallHeight,
+             0, 0, gScreenWidth, gScreenHeight,
+             GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+        gInBlit = false;
+    }
+
     auto swap = reinterpret_cast<EglSwapBuffersFn>(gOriginalSwapBuffersRaw);
     if (swap) {
         return swap(dpy, surface);
@@ -118,6 +137,13 @@ static void glBindFramebufferDetour(GLenum target, GLuint framebuffer) {
     auto original = reinterpret_cast<GlBindFramebufferFn>(gOriginalBindFramebufferRaw);
 
     if (!gInBlit && gFboReady && framebuffer == 0 && target == GL_FRAMEBUFFER) {
+        static bool sLoggedBindRedirect = false;
+        if (!sLoggedBindRedirect) {
+            sLoggedBindRedirect = true;
+            RescaleMod::instance().getSelf().getLogger().info(
+                "Redirected default FBO to small FBO");
+        }
+
         if (original) {
             original(target, gSmallFbo);
         }
@@ -197,6 +223,9 @@ bool RescaleMod::enable() {
         gGlTexImage2D = reinterpret_cast<GlTexImage2DFn>(mGlFboSymbols->glTexImage2D);
         gGlCheckFramebufferStatus = mGlFboSymbols->glCheckFramebufferStatus != 0
             ? reinterpret_cast<GlCheckFramebufferStatusFn>(mGlFboSymbols->glCheckFramebufferStatus)
+            : nullptr;
+        gOriginalGlBlitFramebufferRaw = mGlFboSymbols->glBlitFramebuffer != 0
+            ? reinterpret_cast<void *>(mGlFboSymbols->glBlitFramebuffer)
             : nullptr;
     }
 
